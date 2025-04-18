@@ -1,6 +1,6 @@
 [submodule "tools"]
 	path = tools
-	url = https://github.com/RightSG/open-mdp.git
+	url = https://github.com/Choimoe/open-mdp.git
 [submodule "data"]
 	path = data
 	url = https://github.com/Neskol/Maichart-Converts.git
