@@ -3,12 +3,13 @@ import os
 import glob
 from tqdm import tqdm  # 新增进度条库
 
-def run_csharp_program(input_path, output_directory):
+def run_csharp_program(input_path, output_directory, csv_path):
     """
     使用 .NET CLI 运行 C# 程序，并传递输入路径和输出目录。
     
     :param input_path: 输入文件夹路径（例如：./data/niconicoボーカロイド/44_ハツヒイシンセサイサ/）
     :param output_directory: 输出目录路径（例如：./serialized_data/）
+    :param csv_path: CSV文件路径
     :return: C# 程序的输出结果
     """
     try:
@@ -17,6 +18,8 @@ def run_csharp_program(input_path, output_directory):
             raise FileNotFoundError(f"输入路径 {input_path} 不存在。")
         if not os.path.exists(output_directory):
             os.makedirs(output_directory)
+        if not os.path.exists(os.path.dirname(csv_path)):
+            os.makedirs(os.path.dirname(csv_path), exist_ok=True)
 
         # 构建命令
         cs_project_path = os.path.join(os.getcwd(), "tools", "serializer", "src")
@@ -25,10 +28,11 @@ def run_csharp_program(input_path, output_directory):
             "run",
             "--project", cs_project_path,
             input_path,
-            output_directory
+            output_directory,
+            csv_path
         ]
 
-        print(f"Running command: {' '.join(command)}")
+        # print(f"Running command: {' '.join(command)}")
         
         # 执行命令并捕获输出，添加超时判断
         result = subprocess.run(
@@ -67,6 +71,7 @@ if __name__ == "__main__":
     output_directory = "./serialized_data/"
     success_log = "success.log"
     error_log = "error.log"
+    csv_path = os.path.join(output_directory, "chart_info.csv")  # CSV文件路径
 
     # 加载已处理记录
     processed = load_processed_log(success_log)
@@ -85,7 +90,7 @@ if __name__ == "__main__":
         for input_dir in pbar:
             pbar.set_postfix(file=os.path.basename(input_dir))
             try:
-                result = run_csharp_program(input_dir, output_directory)
+                result = run_csharp_program(input_dir, output_directory, csv_path)
                 if result:
                     # 记录成功
                     with open(success_log, 'a', encoding='utf-8') as f:
