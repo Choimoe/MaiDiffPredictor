@@ -1,5 +1,7 @@
 import subprocess
 import os
+import glob
+from tqdm import tqdm  # 新增进度条库
 
 def run_csharp_program(input_path, output_directory):
     """
@@ -28,12 +30,13 @@ def run_csharp_program(input_path, output_directory):
 
         print(f"Running command: {' '.join(command)}")
         
-        # 执行命令并捕获输出
+        # 执行命令并捕获输出，添加超时判断
         result = subprocess.run(
             command,
             capture_output=True,
             text=True,
-            check=True
+            check=True,
+            timeout=20
         )
         
         return result.stdout.strip()
@@ -46,17 +49,56 @@ def run_csharp_program(input_path, output_directory):
         print(f"Error: {str(e)}")
         return None
 
+def load_processed_log(log_file):
+    """加载已处理成功的日志文件"""
+    if os.path.exists(log_file):
+        with open(log_file, 'r', encoding='utf-8') as f:
+            return set(f.read().splitlines())
+    return set()
 
 if __name__ == "__main__":
-    # 示例输入路径和输出目录
-    input_path = "./data/niconicoボーカロイド/44_ハツヒイシンセサイサ/"  # 替换为实际路径
-    output_directory = "./serialized_data/"  # 替换为实际路径
+    try:
+        # 检查tqdm是否安装
+        from tqdm import tqdm
+    except ImportError:
+        print("请先安装进度条库：pip install tqdm")
+        exit(1)
 
-    # 调用 C# 程序
-    result = run_csharp_program(input_path, output_directory)
-    
-    if result:
-        print("C# 程序输出：")
-        print(result)
-    else:
-        print("程序执行失败，请检查输入路径和输出目录是否正确。")
+    output_directory = "./serialized_data/"
+    success_log = "success.log"
+    error_log = "error.log"
+
+    # 加载已处理记录
+    processed = load_processed_log(success_log)
+    errors = load_processed_log(error_log)
+
+    # 查找所有maidata.txt路径
+    maidat_paths = glob.glob('./data/**/*/maidata.txt', recursive=True)
+    target_dirs = {os.path.abspath(os.path.dirname(p)) for p in maidat_paths}
+
+    # 过滤未处理的目录
+    todo_dirs = [d for d in target_dirs if d not in processed and d not in errors]
+    print(f"总目录数: {len(target_dirs)} | 待处理: {len(todo_dirs)} | 已成功: {len(processed)} | 失败: {len(errors)}")
+
+    # 创建进度条
+    with tqdm(todo_dirs, unit="dir", desc="处理进度") as pbar:
+        for input_dir in pbar:
+            pbar.set_postfix(file=os.path.basename(input_dir))
+            try:
+                result = run_csharp_program(input_dir, output_directory)
+                if result:
+                    # 记录成功
+                    with open(success_log, 'a', encoding='utf-8') as f:
+                        f.write(f"{input_dir}\n")
+                else:
+                    # 记录失败
+                    with open(error_log, 'a', encoding='utf-8') as f:
+                        f.write(f"{input_dir}\n")
+            except Exception as e:
+                print(f"\n处理异常: {input_dir} - {str(e)}")
+                with open(error_log, 'a', encoding='utf-8') as f:
+                    f.write(f"{input_dir}\n")
+
+    print("\n处理完成！结果汇总：")
+    print(f"成功: {len(load_processed_log(success_log))}")
+    print(f"失败: {len(load_processed_log(error_log))}")
