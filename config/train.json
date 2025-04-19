@@ -1,0 +1,10 @@
+{
+    "use_augmentation": true,
+    "diff_dim": 6,
+    "batch_size": 32,
+    "d_model": 128,
+    "nhead": 8,
+    "num_layers": 6,
+    "lr": 1e-4,
+    "epochs": 50
+}
