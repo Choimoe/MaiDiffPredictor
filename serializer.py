@@ -69,9 +69,12 @@ if __name__ == "__main__":
         exit(1)
 
     output_directory = "./serialized_data/"
+    info_directory = "./info/"
     success_log = "success.log"
     error_log = "error.log"
-    csv_path = os.path.join(output_directory, "chart_info.csv")  # CSV文件路径
+    if not os.path.exists(info_directory):
+        os.makedirs(info_directory)
+    csv_path = os.path.join(info_directory, "chart_info.csv")  # CSV文件路径
 
     # 加载已处理记录
     processed = load_processed_log(success_log)
