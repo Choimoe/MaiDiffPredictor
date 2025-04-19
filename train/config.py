@@ -13,6 +13,7 @@ class Config:
     num_layers: int = 6
     lr: float = 1e-4
     epochs: int = 50
+    max_len: int = 1280
 
 config = ''
 

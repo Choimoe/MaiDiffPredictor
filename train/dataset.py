@@ -5,11 +5,13 @@ import torch
 from sklearn.preprocessing import StandardScaler
 from torch.utils.data import Dataset
 
+from config import config
+
 
 class ChartDataset(Dataset):
     """谱面数据集处理"""
 
-    def __init__(self, json_files, labels, max_seq_len=1000, scaler=None):
+    def __init__(self, json_files, labels, max_seq_len=config.max_len, scaler=None):
         self.max_seq_len = max_seq_len
         self.features = []
         self.labels = []

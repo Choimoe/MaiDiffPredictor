@@ -6,5 +6,6 @@
     "nhead": 8,
     "num_layers": 6,
     "lr": 1e-4,
-    "epochs": 50
+    "epochs": 50,
+    "max_len": 1280
 }
