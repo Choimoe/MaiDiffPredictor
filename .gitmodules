@@ -4,3 +4,6 @@
 [submodule "data"]
 	path = data
 	url = https://github.com/Neskol/Maichart-Converts.git
+[submodule "info"]
+	path = info
+	url = https://github.com/Becods/maimaiDX-songs.git
