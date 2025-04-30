@@ -17,3 +17,4 @@ checkpoints/
 *.pkl
 predictions/
 converted_*.json
+trained_models/*.pth
