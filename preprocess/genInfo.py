@@ -151,6 +151,9 @@ def generate_chart_csv():
                     adjusted_fit = fit_diff_value - adjustment + decimal_part
                     adjusted_fit_rounded = round(adjusted_fit, 4)
 
+                    if adjusted_fit_rounded <= 1e-5:
+                        adjusted_fit_rounded = round(target_ds, 4)
+
                     # 计算综合难度
                     combined = (target_ds + adjusted_fit_rounded) / 2
                     combined_rounded = round(combined, 4) if adjusted_fit_rounded else ''
