@@ -1,12 +1,10 @@
 import math
 
-import mscale
 import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
 from matplotlib.ticker import FuncFormatter
-from scipy.interpolate import CubicSpline
-from scipy.signal import savgol_filter
+from scipy.ndimage import uniform_filter1d
 
 import draw.scale
 
@@ -18,28 +16,28 @@ def smooth_difficulty_data(difficulties):
     if n < 5:
         return data
 
-    min_window = 20
-    max_window = 81
+    min_window = 3
+    max_window = 11
     target_ratio = 0.15
 
+    # 动态计算窗口大小，确保为奇数，并在 [min_window, max_window] 范围内
     window_size = int(n * target_ratio) // 2 * 2 + 1
     window_size = np.clip(window_size, min_window, max_window)
-
     window_size = min(window_size, n)
     if window_size % 2 == 0:
         window_size = max(3, window_size - 1)
 
-    poly_order = min(3, window_size // 2)
+    # 将窗口大小转换为 EMA 的 alpha 参数
+    # alpha = 2 / (window_size + 1) 是常用的经验公式
+    alpha = 2 / (window_size + 1)
 
     try:
-        x_old = np.linspace(0, 1, n)
-        x_new = np.linspace(0, 1, int(n * 1.5))
-        spline = CubicSpline(x_old, data)
-        interpolated = spline(x_new)
-
-        smoothed = savgol_filter(interpolated, window_size, poly_order)
-
-        return np.interp(np.linspace(0, 1, n), np.linspace(0, 1, len(smoothed)), smoothed)
+        # 初始化 EMA 结果数组
+        smoothed = [data[0]]  # 第一个点不变
+        for i in range(1, n):
+            # 使用递推公式计算 EMA
+            smoothed.append(smoothed[-1] + alpha * (data[i] - smoothed[-1]))
+        return np.array(smoothed)
     except Exception as e:
         print(f"Smoothing failed: {str(e)}")
         return data
@@ -48,7 +46,7 @@ def smooth_difficulty_data(difficulties):
 def generate_major_ticks(start_diff, max_diff):
     major_ticks = [-1, 0, 5, 10]
 
-    rounded_max_diff = round(float(max_diff), 2)
+    rounded_max_diff = round(float(max_diff), 1)
     start = start_diff
 
     int_part = math.floor(rounded_max_diff)
@@ -106,7 +104,7 @@ def visualize_difficulty(times, difficulties, song_name, diff_name, save_path="d
     ax = plt.gca()
 
     # 应用自定义坐标轴
-    ax.set_yscale('difficulty', threshold=10, linear_scale=0.7, exp_scale=3,
+    ax.set_yscale('difficulty', threshold=start_diff, linear_scale=0.7, exp_scale=4,
                   major_ticks=generate_major_ticks(start_diff, max_diff))
 
     # 绘制曲线
