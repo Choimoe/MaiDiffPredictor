@@ -1,5 +1,5 @@
 serialized_data/
-info/
+pre_info/
 log/
 .DS_Store
 *.log
@@ -17,3 +17,4 @@ checkpoints/
 *.pkl
 predictions/
 converted_*.json
+trained_models/*.pth
