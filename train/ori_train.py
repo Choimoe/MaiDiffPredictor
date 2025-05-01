@@ -141,7 +141,7 @@ class Attention(nn.Module):
         self.special_weight = special_weight
 
     def forward(self, lstm_output):
-        # lstm_output: [batch_size, seq_len, hidden_size]
+        # 计算注意力权重
         attention_weights = torch.tanh(self.attention(lstm_output))
         attention_weights = self.context_vector(attention_weights).squeeze(-1)
 
@@ -150,8 +150,10 @@ class Attention(nn.Module):
         attention_weights += self.special_weight * special_attention
 
         attention_weights = torch.softmax(attention_weights, dim=1)
-        context_vector = torch.sum(attention_weights.unsqueeze(-1) * lstm_output, dim=1)
-        return context_vector, attention_weights
+        attention_weights = attention_weights.unsqueeze(-1)  # [batch_size, seq_len, 1]
+        weighted_output = attention_weights * lstm_output  # [batch_size, seq_len, hidden_size]
+
+        return weighted_output  # 返回每个时间步的加权输出
 
 
 # 定义 LSTM 模型
@@ -174,9 +176,9 @@ class LSTMModelWithAttention(nn.Module):
         h_0 = torch.zeros(num_layers, x.size(0), hidden_size).to(x.device)
         c_0 = torch.zeros(num_layers, x.size(0), hidden_size).to(x.device)
         lstm_output, _ = self.lstm(x, (h_0, c_0))
-        context_vector, attention_weights = self.attention(lstm_output)
-        output = self.fc(context_vector).squeeze(-1)  # 调整输出尺寸
-        return output, attention_weights
+        weighted_output = self.attention(lstm_output)
+        output = self.fc(weighted_output)  # [batch_size, seq_len, 1]
+        return output.squeeze(-1)  # [batch_size, seq_len]
 
 
 # 定义模型参数
@@ -234,30 +236,33 @@ save_interval = 10  # 每10轮保存一次模型
 for epoch in range(num_epochs):
     model.train()
     epoch_loss = 0
-    high_error_samples = []  # 存储高误差样本
+    high_error_samples = []
 
     for inputs, labels, metadata in data_loader:
         inputs, labels = inputs.cuda(), labels.cuda()
-        outputs, _ = model(inputs)
-        loss = criterion(outputs, labels)
+        outputs = model(inputs)  # [batch_size, seq_len]
+        outputs_aggregated = outputs.mean(dim=1)  # 聚合为标量输出
+        loss = criterion(outputs_aggregated, labels)
 
         # 计算每个样本的损失
-        batch_losses = torch.nn.functional.mse_loss(outputs, labels, reduction='none')
+        batch_losses = torch.nn.functional.mse_loss(outputs_aggregated, labels, reduction='none')
 
-        # 筛选高误差样本（超过平均损失2倍）
+        # 筛选高误差样本
         threshold = batch_losses.mean() * 2
         high_error_mask = batch_losses > threshold
         high_error_indices = high_error_mask.nonzero().flatten().tolist()
 
         # 记录高误差样本信息
         for idx in high_error_indices:
+            if int(metadata[idx]["level_index"]) < 2:
+                continue
             high_error_samples.append({
                 "song_id": metadata[idx]["song_id"],
                 "level_index": metadata[idx]["level_index"],
                 "fit_diff": metadata[idx]["fit_diff"],
                 "ds": metadata[idx]["ds"],
                 "loss": batch_losses[idx].item(),
-                "predicted": outputs[idx].item(),
+                "predicted": outputs_aggregated[idx].item(),
                 "actual": labels[idx].item()
             })
 
