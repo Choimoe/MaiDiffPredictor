@@ -52,6 +52,7 @@ class NoteDataset(Dataset):
     def __init__(self, json_data_list):
         self.data = []
         self.labels = []
+        self.metadata = []  # 新增元数据存储
         for item in json_data_list:
             notes_sequence = []
             for entry in item["data"]:
@@ -80,14 +81,24 @@ class NoteDataset(Dataset):
                     notes_sequence.append(note_features)
             self.data.append(notes_sequence)
             self.labels.append(item["combined_diff"])
+            # 存储元数据
+            self.metadata.append({
+                "song_id": item["song_id"],
+                "level_index": item["level_index"],
+                "fit_diff": item["fit_diff"],
+                "ds": item["ds"]
+            })
 
     def __len__(self):
         return len(self.data)
 
     def __getitem__(self, idx):
-        return torch.tensor(self.data[idx], dtype=torch.float32), torch.tensor(
-            self.labels[idx], dtype=torch.float32
+        return (
+            torch.tensor(self.data[idx], dtype=torch.float32),
+            torch.tensor(self.labels[idx], dtype=torch.float32),
+            self.metadata[idx]  # 返回元数据
         )
+
 
 
 # 创建数据集
@@ -101,18 +112,16 @@ print(f"数据集中最大 note 数量: {max_note_length}")
 fixed_length = max_note_length + 200
 
 
-# 自定义 collate_fn 函数
 def collate_fn(batch):
-    data, labels = zip(*batch)
+    data, labels, metadata = zip(*batch)
     data_padded = pad_sequence(data, batch_first=True)
-    # 如果序列长度超过固定长度，则截断；否则填充
     if data_padded.size(1) > fixed_length:
         data_padded = data_padded[:, :fixed_length, :]
     else:
         padding_size = fixed_length - data_padded.size(1)
         data_padded = torch.nn.functional.pad(data_padded, (0, 0, 0, padding_size))
     labels = torch.stack(labels)
-    return data_padded, labels
+    return data_padded, labels, metadata
 
 
 # 创建数据加载器
@@ -225,10 +234,34 @@ save_interval = 10  # 每10轮保存一次模型
 for epoch in range(num_epochs):
     model.train()
     epoch_loss = 0
-    for inputs, labels in data_loader:
+    high_error_samples = []  # 存储高误差样本
+
+    for inputs, labels, metadata in data_loader:
         inputs, labels = inputs.cuda(), labels.cuda()
-        outputs, attention_weights = model(inputs)
+        outputs, _ = model(inputs)
         loss = criterion(outputs, labels)
+
+        # 计算每个样本的损失
+        batch_losses = torch.nn.functional.mse_loss(outputs, labels, reduction='none')
+
+        # 筛选高误差样本（超过平均损失2倍）
+        threshold = batch_losses.mean() * 2
+        high_error_mask = batch_losses > threshold
+        high_error_indices = high_error_mask.nonzero().flatten().tolist()
+
+        # 记录高误差样本信息
+        for idx in high_error_indices:
+            high_error_samples.append({
+                "song_id": metadata[idx]["song_id"],
+                "level_index": metadata[idx]["level_index"],
+                "fit_diff": metadata[idx]["fit_diff"],
+                "ds": metadata[idx]["ds"],
+                "loss": batch_losses[idx].item(),
+                "predicted": outputs[idx].item(),
+                "actual": labels[idx].item()
+            })
+
+        # 反向传播和优化
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
@@ -237,7 +270,19 @@ for epoch in range(num_epochs):
     epoch_loss /= len(data_loader)
     scheduler.step(epoch_loss)
 
-    print(f"Epoch [{epoch+1}/{num_epochs}], Loss: {epoch_loss:.4f}")
+    # 打印高误差样本
+    print(f"\nEpoch [{epoch + 1}/{num_epochs}], Loss: {epoch_loss:.4f}")
+    if high_error_samples:
+        print("Top 5 high error samples:")
+        # 按损失排序并取前5
+        high_error_samples.sort(key=lambda x: x["loss"], reverse=True)
+        for sample in high_error_samples[:5]:
+            print(f"Song: {sample['song_id']} | Level: {sample['level_index']}")
+            print(f"  FitDiff: {sample['fit_diff']} | DS: {sample['ds']}")
+            print(
+                f"  Loss: {sample['loss']:.4f} | Predicted: {sample['predicted']:.2f} | Actual: {sample['actual']:.2f}")
+    else:
+        print("No high error samples this epoch.")
 
     # 保存模型
     if (epoch + 1) % save_interval == 0:
