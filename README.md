@@ -46,7 +46,7 @@ We welcome community contributions to improve pattern recognition capabilities.
 git clone https://github.com/yourname/MaiDiffPredictor.git
 
 # Install Python dependencies
-pip install -r requirements.txt
+# pip install -r requirements.txt
 
 # Install .NET SDK (Ubuntu example)
 wget https://packages.microsoft.com/config/ubuntu/20.04/packages-microsoft-prod.deb
@@ -61,24 +61,23 @@ sudo apt-get update && sudo apt-get install dotnet-sdk-6.0
 python serializer.py
 
 # Fetch latest chart stats
-python preprocess/getDiff.py
+python .\preprocess\getDiff.py
+python .\preprocess\fixSlideTime.py .\serialized_data\ -o .\serialized_data\
+python .\preprocess\enhance_json.py .\serialized_data\ -o .\serialized_data\
+python .\preprocess\genInfo.py
 ```
 
 ## Model Training
 
 ```bash
 # Single GPU training
-python train/model.py
+python .\train\ori_train.py
 ```
 
 ## Prediction with Pretrained Model
 
 ```bash
-# Example 1: Predict from JSON file
-python train/test.py \
-  --model best_model.pth \
-  --scaler scaler.pkl \
-  --input chart.json
+python .\train\test.py
 ```
 
 ## Project Structure
@@ -122,7 +121,27 @@ The system processes chart data through three main stages:
 
 ## Sample Output
 
-...
+```text
+Epoch [10/1000], Loss: 0.5384
+Top 5 high error samples:
+Song: 786 | Level: 2
+  FitDiff: 12.6518 | DS: 12.7
+  Loss: 10.0690 | Predicted: 9.50 | Actual: 12.68
+Song: 157 | Level: 2
+  FitDiff: 12.2823 | DS: 11.6
+  Loss: 9.8733 | Predicted: 8.80 | Actual: 11.94
+Song: 531 | Level: 1
+  FitDiff: 9.1862 | DS: 9.0
+  Loss: 8.9822 | Predicted: 12.09 | Actual: 9.09
+Song: 212 | Level: 2
+  FitDiff: 12.4363 | DS: 12.2
+  Loss: 8.7804 | Predicted: 9.35 | Actual: 12.32
+Song: 189 | Level: 3
+  FitDiff: 12.3803 | DS: 12.7
+  Loss: 8.6610 | Predicted: 9.60 | Actual: 12.54
+模型已保存: trained_models\model_epoch_10.pth
+最好的模型已保存: trained_models/best_model.pth
+```
 
 ## License
 
