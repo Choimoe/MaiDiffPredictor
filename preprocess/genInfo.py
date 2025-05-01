@@ -139,10 +139,13 @@ def generate_chart_csv():
                         fit_diff_value = 0.0  # 处理无效值
 
                     decimal_part = target_ds - int(target_ds)  # 获取小数部分
-                    if decimal_part >= 0.7:
+                    if decimal_part + 1e-5 > 0.7:
                         adjustment = 0.75
                     else:
                         adjustment = 0.25
+
+                    if target_ds == 15.0:
+                        adjustment = -0.4
                     
                     # 应用调整公式
                     adjusted_fit = fit_diff_value - adjustment + decimal_part
